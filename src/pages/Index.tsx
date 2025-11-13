@@ -40,6 +40,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Document = {
   id: number;
@@ -112,6 +117,11 @@ const Index = () => {
   const [filterType, setFilterType] = useState("all");
   const [sortBy, setSortBy] = useState("date");
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [filterAuthor, setFilterAuthor] = useState("");
   const [newDocument, setNewDocument] = useState({
     title: "",
     type: "Протокол",
@@ -124,7 +134,14 @@ const Index = () => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.author.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = filterType === "all" || doc.type === filterType;
-    return matchesSearch && matchesType;
+    const matchesStatus = filterStatus.length === 0 || filterStatus.includes(doc.status);
+    const matchesAuthor = !filterAuthor || doc.author.toLowerCase().includes(filterAuthor.toLowerCase());
+    
+    const docDate = new Date(doc.lastModified);
+    const matchesDateFrom = !dateFrom || docDate >= dateFrom;
+    const matchesDateTo = !dateTo || docDate <= dateTo;
+    
+    return matchesSearch && matchesType && matchesStatus && matchesAuthor && matchesDateFrom && matchesDateTo;
   });
 
   const getStatusColor = (status: string) => {
@@ -172,6 +189,34 @@ const Index = () => {
     setIsUploadDialogOpen(false);
   };
 
+  const handleStatusToggle = (status: string) => {
+    setFilterStatus(prev => 
+      prev.includes(status) 
+        ? prev.filter(s => s !== status)
+        : [...prev, status]
+    );
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterType("all");
+    setFilterStatus([]);
+    setFilterAuthor("");
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    toast({
+      title: "Фильтры сброшены",
+      description: "Все фильтры были очищены",
+    });
+  };
+
+  const activeFiltersCount = 
+    (filterType !== "all" ? 1 : 0) +
+    filterStatus.length +
+    (filterAuthor ? 1 : 0) +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card sticky top-0 z-50">
@@ -217,18 +262,33 @@ const Index = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="relative hidden lg:block">
-                <Icon
-                  name="Search"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  size={18}
-                />
-                <Input
-                  placeholder="Поиск документов..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-80"
-                />
+              <div className="flex items-center gap-2">
+                <div className="relative hidden lg:block">
+                  <Icon
+                    name="Search"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    size={18}
+                  />
+                  <Input
+                    placeholder="Поиск документов..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 w-80"
+                  />
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setIsAdvancedSearchOpen(true)}
+                  className="relative"
+                >
+                  <Icon name="SlidersHorizontal" size={18} />
+                  {activeFiltersCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground rounded-full text-xs flex items-center justify-center">
+                      {activeFiltersCount}
+                    </span>
+                  )}
+                </Button>
               </div>
 
               <DropdownMenu>
@@ -542,6 +602,153 @@ const Index = () => {
             <Button onClick={handleUploadDocument} className="gap-2">
               <Icon name="Upload" size={16} />
               Загрузить документ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAdvancedSearchOpen} onOpenChange={setIsAdvancedSearchOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icon name="SlidersHorizontal" size={20} />
+              Расширенный поиск
+            </DialogTitle>
+            <DialogDescription>
+              Настройте фильтры для точного поиска документов
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label>Статус документа</Label>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="status-approved" 
+                    checked={filterStatus.includes("approved")}
+                    onCheckedChange={() => handleStatusToggle("approved")}
+                  />
+                  <label
+                    htmlFor="status-approved"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Утверждены
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="status-review" 
+                    checked={filterStatus.includes("review")}
+                    onCheckedChange={() => handleStatusToggle("review")}
+                  />
+                  <label
+                    htmlFor="status-review"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    На проверке
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="status-draft" 
+                    checked={filterStatus.includes("draft")}
+                    onCheckedChange={() => handleStatusToggle("draft")}
+                  />
+                  <label
+                    htmlFor="status-draft"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Черновики
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="author-filter">Автор</Label>
+              <Input
+                id="author-filter"
+                placeholder="Введите имя автора..."
+                value={filterAuthor}
+                onChange={(e) => setFilterAuthor(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Дата от</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <Icon name="Calendar" className="mr-2" size={16} />
+                      {dateFrom ? format(dateFrom, "dd.MM.yyyy", { locale: ru }) : "Выберите дату"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateFrom}
+                      onSelect={setDateFrom}
+                      locale={ru}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Дата до</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <Icon name="Calendar" className="mr-2" size={16} />
+                      {dateTo ? format(dateTo, "dd.MM.yyyy", { locale: ru }) : "Выберите дату"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateTo}
+                      onSelect={setDateTo}
+                      locale={ru}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {activeFiltersCount > 0 && (
+              <Card className="p-4 bg-muted">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Icon name="Filter" size={16} className="text-muted-foreground" />
+                    <span className="text-sm font-medium">
+                      Активных фильтров: {activeFiltersCount}
+                    </span>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    Сбросить всё
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAdvancedSearchOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={() => setIsAdvancedSearchOpen(false)} className="gap-2">
+              <Icon name="Search" size={16} />
+              Применить фильтры
             </Button>
           </DialogFooter>
         </DialogContent>
