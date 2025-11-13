@@ -8,6 +8,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Icon from "@/components/ui/icon";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type DocumentVersion = {
   version: string;
@@ -93,7 +105,10 @@ const DocumentDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("details");
+  const [activeTab, setActiveTab] = useState("preview");
+  const [newComment, setNewComment] = useState("");
+  const [comments, setComments] = useState<Comment[]>(mockComments);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -135,6 +150,46 @@ const DocumentDetail = () => {
     });
   };
 
+  const handleAddComment = () => {
+    if (!newComment.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Комментарий не может быть пустым",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newCommentObj: Comment = {
+      id: comments.length + 1,
+      author: "Иванов А.С.",
+      date: new Date().toLocaleString("ru-RU", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      text: newComment,
+      avatar: "АИ",
+    };
+
+    setComments([newCommentObj, ...comments]);
+    setNewComment("");
+    toast({
+      title: "Комментарий добавлен",
+      description: "Ваш комментарий успешно добавлен",
+    });
+  };
+
+  const handleDelete = () => {
+    toast({
+      title: "Документ удален",
+      description: `Документ «${mockDocument.title}» был удален`,
+    });
+    setTimeout(() => navigate("/"), 1500);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card sticky top-0 z-50">
@@ -160,6 +215,16 @@ const DocumentDetail = () => {
                 <Icon name="Share2" size={16} />
                 Поделиться
               </Button>
+              {mockDocument.permissions.canDelete && (
+                <Button 
+                  variant="outline" 
+                  className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <Icon name="Trash2" size={16} />
+                  Удалить
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -203,11 +268,56 @@ const DocumentDetail = () => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="preview">Предпросмотр</TabsTrigger>
               <TabsTrigger value="details">Детали</TabsTrigger>
               <TabsTrigger value="versions">История версий</TabsTrigger>
-              <TabsTrigger value="comments">Комментарии</TabsTrigger>
+              <TabsTrigger value="comments">Комментарии ({comments.length})</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="preview" className="mt-6">
+              <Card className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Icon name="Eye" size={18} />
+                    Предпросмотр документа
+                  </h3>
+                  <Badge variant="outline">{mockDocument.fileFormat}</Badge>
+                </div>
+                <div className="bg-muted rounded-lg border-2 border-dashed border-border p-12 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Icon name="FileText" className="text-primary" size={40} />
+                    </div>
+                    <div>
+                      <p className="text-lg font-medium mb-1">{mockDocument.title}</p>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {mockDocument.fileFormat} • {mockDocument.fileSize}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={handleDownload} className="gap-2">
+                        <Icon name="Download" size={16} />
+                        Скачать для просмотра
+                      </Button>
+                      <Button variant="outline" className="gap-2">
+                        <Icon name="ExternalLink" size={16} />
+                        Открыть в новой вкладке
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex gap-2">
+                    <Icon name="Info" size={16} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                    <div className="text-sm text-blue-800 dark:text-blue-200">
+                      <p className="font-medium mb-1">Предпросмотр в браузере</p>
+                      <p>Для полноценного просмотра PDF, Word и Excel файлов скачайте документ или откройте его в новой вкладке.</p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="details" className="space-y-6 mt-6">
               <Card className="p-6">
@@ -358,32 +468,87 @@ const DocumentDetail = () => {
             </TabsContent>
 
             <TabsContent value="comments" className="mt-6">
-              <Card className="p-6">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <Icon name="MessageSquare" size={18} />
-                  Комментарии ({mockComments.length})
-                </h3>
-                <div className="space-y-4">
-                  {mockComments.map((comment) => (
-                    <div key={comment.id} className="flex gap-3">
-                      <Avatar>
-                        <AvatarFallback>{comment.avatar}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="font-medium text-sm">{comment.author}</p>
-                          <p className="text-xs text-muted-foreground">{comment.date}</p>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{comment.text}</p>
-                      </div>
+              <div className="space-y-6">
+                <Card className="p-6">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <Icon name="MessageSquarePlus" size={18} />
+                    Добавить комментарий
+                  </h3>
+                  <div className="space-y-3">
+                    <Textarea
+                      placeholder="Напишите ваш комментарий..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      rows={4}
+                      className="resize-none"
+                    />
+                    <div className="flex justify-end">
+                      <Button onClick={handleAddComment} className="gap-2">
+                        <Icon name="Send" size={16} />
+                        Отправить
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              </Card>
+                  </div>
+                </Card>
+
+                <Card className="p-6">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <Icon name="MessageSquare" size={18} />
+                    Комментарии ({comments.length})
+                  </h3>
+                  {comments.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Icon name="MessageSquare" size={48} className="mx-auto mb-2 opacity-50" />
+                      <p>Комментариев пока нет. Станьте первым!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="flex gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                          <Avatar>
+                            <AvatarFallback>{comment.avatar}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="font-medium text-sm">{comment.author}</p>
+                              <p className="text-xs text-muted-foreground">{comment.date}</p>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{comment.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
       </main>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Icon name="AlertTriangle" size={20} className="text-destructive" />
+              Удалить документ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить документ «{mockDocument.title}»? 
+              Это действие нельзя отменить. Документ и все его версии будут удалены безвозвратно.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Удалить документ
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
