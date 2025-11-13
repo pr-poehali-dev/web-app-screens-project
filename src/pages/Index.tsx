@@ -28,6 +28,17 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Icon from "@/components/ui/icon";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 type Document = {
   id: number;
@@ -98,6 +109,14 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [sortBy, setSortBy] = useState("date");
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [newDocument, setNewDocument] = useState({
+    title: "",
+    type: "Протокол",
+    description: "",
+    file: null as File | null,
+  });
+  const { toast } = useToast();
 
   const filteredDocuments = mockDocuments.filter((doc) => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,6 +149,25 @@ const Index = () => {
       default:
         return status;
     }
+  };
+
+  const handleUploadDocument = () => {
+    if (!newDocument.title || !newDocument.file) {
+      toast({
+        title: "Ошибка",
+        description: "Заполните все обязательные поля",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Успешно!",
+      description: `Документ «${newDocument.title}» загружен`,
+    });
+
+    setNewDocument({ title: "", type: "Протокол", description: "", file: null });
+    setIsUploadDialogOpen(false);
   };
 
   return (
@@ -285,7 +323,7 @@ const Index = () => {
               </div>
             </Card>
 
-            <Button className="w-full gap-2" size="lg">
+            <Button className="w-full gap-2" size="lg" onClick={() => setIsUploadDialogOpen(true)}>
               <Icon name="Plus" size={20} />
               Добавить документ
             </Button>
@@ -395,6 +433,114 @@ const Index = () => {
           </div>
         </div>
       </main>
+
+      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icon name="Upload" size={20} />
+              Загрузить новый документ
+            </DialogTitle>
+            <DialogDescription>
+              Заполните информацию о документе и выберите файл для загрузки
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Название документа *</Label>
+              <Input
+                id="title"
+                placeholder="Например: Протокол испытаний оборудования"
+                value={newDocument.title}
+                onChange={(e) => setNewDocument({ ...newDocument, title: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="type">Тип документа *</Label>
+              <Select
+                value={newDocument.type}
+                onValueChange={(value) => setNewDocument({ ...newDocument, type: value })}
+              >
+                <SelectTrigger id="type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Протокол">Протокол</SelectItem>
+                  <SelectItem value="Методика">Методика</SelectItem>
+                  <SelectItem value="Отчет">Отчет</SelectItem>
+                  <SelectItem value="ТЗ">ТЗ</SelectItem>
+                  <SelectItem value="Инструкция">Инструкция</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Описание (опционально)</Label>
+              <Textarea
+                id="description"
+                placeholder="Краткое описание документа..."
+                value={newDocument.description}
+                onChange={(e) => setNewDocument({ ...newDocument, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="file">Файл документа *</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="file"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setNewDocument({ ...newDocument, file });
+                  }}
+                  className="cursor-pointer"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Поддерживаемые форматы: PDF, DOC, DOCX, XLS, XLSX
+              </p>
+            </div>
+
+            {newDocument.file && (
+              <Card className="p-3 bg-muted">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center">
+                    <Icon name="FileText" className="text-primary" size={20} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{newDocument.file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(newDocument.file.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setNewDocument({ ...newDocument, file: null })}
+                  >
+                    <Icon name="X" size={16} />
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleUploadDocument} className="gap-2">
+              <Icon name="Upload" size={16} />
+              Загрузить документ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
