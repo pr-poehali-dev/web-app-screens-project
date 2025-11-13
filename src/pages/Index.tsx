@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -105,6 +106,7 @@ const mockNotifications = [
 ];
 
 const Index = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [filterType, setFilterType] = useState("all");
@@ -356,7 +358,10 @@ const Index = () => {
                   {filteredDocuments.map((doc) => (
                     <TableRow key={doc.id} className="hover:bg-muted/50 transition-colors">
                       <TableCell className="font-medium">
-                        <button className="text-left hover:text-primary transition-colors">
+                        <button 
+                          className="text-left hover:text-primary transition-colors"
+                          onClick={() => navigate(`/document/${doc.id}`)}
+                        >
                           {doc.title}
                         </button>
                       </TableCell>
